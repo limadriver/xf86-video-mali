@@ -270,7 +270,7 @@ static int exchange_buffers(DrawablePtr pDraw, DRI2BufferPtr front, DRI2BufferPt
 	 */
 	both_framebuffer = (front_privPixmap->isFrameBuffer && back_privPixmap->isFrameBuffer);
 	one_framebuffer = (front_privPixmap->isFrameBuffer || back_privPixmap->isFrameBuffer);
-	
+
 	if ( both_framebuffer ) exchange_mem_info = FALSE;
 	else if ( !one_framebuffer && dri2_complete_cmd == DRI2_EXCHANGE_COMPLETE ) exchange_mem_info = TRUE;
 
@@ -351,8 +351,8 @@ static void MaliDRI2CopyRegion( DrawablePtr pDraw, RegionPtr pRegion, DRI2Buffer
  * should wait for vblank event which will trigger registered event handler.
  * Event handler will do FLIP/SWAP/BLIT according to event type.
  *
- * TODO: current DRM doesn't support vblank well, so this function just do FLIP/
- *       SWAP/BLIT directly, according to drawable information.
+ * Current DRM doesn't support vblank well, so this function just do FLIP/
+ * SWAP/BLIT directly, according to drawable information.
  */
 static int MaliDRI2ScheduleSwap(ClientPtr client, DrawablePtr pDraw, DRI2BufferPtr front,
 								DRI2BufferPtr back, CARD64 *target_msc, CARD64 divisor,
@@ -411,7 +411,7 @@ static int MaliDRI2ScheduleSwap(ClientPtr client, DrawablePtr pDraw, DRI2BufferP
 		/* Update all windows so that their front buffer is now the other half of the fbdev */
 		WalkTree(pScreen, wt_set_window_pixmap, back_pixmap);
 
-		
+
 	}
 	else if(front_pixmap->drawable.width        == back_pixmap->drawable.width   &&
 			front_pixmap->drawable.height       == back_pixmap->drawable.height  &&
@@ -429,7 +429,6 @@ static int MaliDRI2ScheduleSwap(ClientPtr client, DrawablePtr pDraw, DRI2BufferP
 			box.y2 = pDraw->height;
 			REGION_INIT(pScreen, &region, &box, 0);
 
-			/* TODO: not sure if doing the translate is correct for a non-composite scenario */
 			RegionTranslate( &region, dst_pix->screen_x, dst_pix->screen_y );
 
 			DamageDamageRegion(pDraw, &region);
@@ -444,7 +443,7 @@ static int MaliDRI2ScheduleSwap(ClientPtr client, DrawablePtr pDraw, DRI2BufferP
 			box.x2 = pDraw->width;
 			box.y2 = pDraw->height;
 			REGION_INIT(pScreen, &region, &box, 0);
-		
+
 			MaliDRI2CopyRegion(pDraw, &region, front, back);
 			dri2_complete_cmd = DRI2_BLIT_COMPLETE;
 		}
@@ -456,7 +455,7 @@ static int MaliDRI2ScheduleSwap(ClientPtr client, DrawablePtr pDraw, DRI2BufferP
 		box.x2 = pDraw->width;
 		box.y2 = pDraw->height;
 		REGION_INIT(pScreen, &region, &box, 0);
-		
+
 		MaliDRI2CopyRegion(pDraw, &region, front, back);
 		dri2_complete_cmd = DRI2_BLIT_COMPLETE;
 	}

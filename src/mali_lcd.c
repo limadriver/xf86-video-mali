@@ -95,10 +95,10 @@ static void fbdev_lcd_crtc_set_origin(xf86CrtcPtr crtc, int x, int y)
 	IGNORE( y );
 }
 
-static const xf86CrtcFuncsRec fbdev_lcd_crtc_funcs = 
+static const xf86CrtcFuncsRec fbdev_lcd_crtc_funcs =
 {
 	.dpms = fbdev_lcd_crtc_dpms,
-	.save = NULL, 
+	.save = NULL,
 	.restore = NULL,
 	.lock = fbdev_lcd_crtc_lock,
 	.unlock = fbdev_lcd_crtc_unlock,
@@ -107,7 +107,7 @@ static const xf86CrtcFuncsRec fbdev_lcd_crtc_funcs =
 	.mode_set = fbdev_lcd_crtc_mode_set,
 	.commit = fbdev_lcd_crtc_commit,
 	.gamma_set = fbdev_lcd_crtc_gamma_set,
-	.shadow_allocate = NULL, 
+	.shadow_allocate = NULL,
 	.shadow_create = NULL,
 	.shadow_destroy = NULL,
 	.set_cursor_colors = NULL,
@@ -125,7 +125,7 @@ static void fbdev_lcd_output_dpms(xf86OutputPtr output, int mode)
 {
 	MaliPtr fPtr = MALIPTR(output->scrn);
 
-	if ( mode == DPMSModeOn ) 
+	if ( mode == DPMSModeOn )
 	{
 		ioctl(fPtr->fb_lcd_fd, FBIOBLANK, FB_BLANK_UNBLANK);
 	}
@@ -150,7 +150,6 @@ static int fbdev_lcd_output_mode_valid(xf86OutputPtr output, DisplayModePtr pMod
 	IGNORE( output );
 	IGNORE( pMode );
 
-	/* TODO: return MODE_ERROR in case of unsupported mode */
 	xf86DrvMsg(0, X_INFO, "Mode %i x %i valid\n", pMode->HDisplay, pMode->VDisplay );
 
 	return MODE_OK;
@@ -233,7 +232,7 @@ DisplayModePtr fbdev_make_mode( int xres, int yres, DisplayModePtr prev )
 	mode_ptr->type = M_T_DRIVER;
 
 	xf86SetModeDefaultName(mode_ptr);
-		
+
 	mode_ptr->next = NULL;
 	mode_ptr->prev = prev;
 
@@ -260,7 +259,7 @@ static DisplayModePtr fbdev_lcd_output_get_modes(xf86OutputPtr output)
 
 			xf86DrvMsg(0, X_INFO, "Adding mode: %i x %i\n", xres, yres);
 
-			if ( modeptr_first == NULL ) 
+			if ( modeptr_first == NULL )
 			{
 				modeptr_first = fbdev_make_mode( xres, yres, NULL );
 				modeptr = modeptr_first;
@@ -297,7 +296,7 @@ static DisplayModePtr fbdev_lcd_output_get_modes(xf86OutputPtr output)
 	mode_ptr->type = M_T_DRIVER;
 
 	xf86SetModeDefaultName(mode_ptr);
-		
+
 	mode_ptr->next = NULL;
 	mode_ptr->prev = NULL;
 
@@ -316,7 +315,7 @@ static void fbdev_lcd_output_destroy(xf86OutputPtr output)
 	IGNORE( output );
 }
 
-static const xf86OutputFuncsRec fbdev_lcd_output_funcs = 
+static const xf86OutputFuncsRec fbdev_lcd_output_funcs =
 {
 	.create_resources = NULL,
 	.dpms = fbdev_lcd_output_dpms,
