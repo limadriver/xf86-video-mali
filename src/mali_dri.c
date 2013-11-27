@@ -52,32 +52,6 @@ typedef struct
 	Bool has_bb_reference;
 } MaliDRI2BufferPrivateRec, *MaliDRI2BufferPrivatePtr;
 
-static Bool can_flip(DrawablePtr pDraw)
-{
-    ScreenPtr pScreen = pDraw->pScreen;
-    WindowPtr pWin, pRoot;
-    PixmapPtr pWinPixmap, pRootPixmap;
-
-    pRoot = pScreen->root;
-    pRootPixmap = pScreen->GetWindowPixmap(pRoot);
-
-    pWin = (WindowPtr) pDraw;
-    pWinPixmap = pScreen->GetWindowPixmap(pWin);
-    if (pRootPixmap != pWinPixmap)
-        return FALSE;
-
-    /* Does the window match the pixmap exactly? */
-    if (pDraw->x != 0 || pDraw->y != 0 ||
-#ifdef COMPOSITE
-        pDraw->x != pWinPixmap->screen_x || pDraw->y != pWinPixmap->screen_y ||
-#endif
-        pDraw->width != pWinPixmap->drawable.width ||
-        pDraw->height != pWinPixmap->drawable.height)
-        return FALSE;
-
-    return TRUE;
-}
-
 static DRI2Buffer2Ptr MaliDRI2CreateBuffer( DrawablePtr pDraw, unsigned int attachment, unsigned int format )
 {
 	ScreenPtr pScreen = pDraw->pScreen;
@@ -103,7 +77,7 @@ static DRI2Buffer2Ptr MaliDRI2CreateBuffer( DrawablePtr pDraw, unsigned int atta
 	if ( NULL == buffer ) return NULL;
 
 	privates = calloc(1, sizeof *privates);
-	if ( NULL == privates ) 
+	if ( NULL == privates )
 	{
 		free( buffer );
 		return NULL;
@@ -120,7 +94,7 @@ static DRI2Buffer2Ptr MaliDRI2CreateBuffer( DrawablePtr pDraw, unsigned int atta
 	buffer->format = format;
 	buffer->flags = 0;
 
-	if ( can_flip(pDraw) && fPtr->use_pageflipping && DRAWABLE_WINDOW == pDraw->type )
+	if ( DRI2CanFlip( pDraw ) && fPtr->use_pageflipping && DRAWABLE_WINDOW == pDraw->type )
 	{
 		assert(privWindowPixmap->other_buffer != NULL);
 
@@ -257,7 +231,7 @@ PixmapPtr dri2_get_drawable_pixmap( DrawablePtr pDraw )
 	if ( DRAWABLE_WINDOW == pDraw->type )
 	{
 		pix = pDraw->pScreen->GetWindowPixmap( (WindowPtr)pDraw );
-	} 
+	}
 	else
 	{
 		pix = (PixmapPtr)pDraw;
@@ -300,15 +274,25 @@ static int exchange_buffers(DrawablePtr pDraw, DRI2BufferPtr front, DRI2BufferPt
 	if ( both_framebuffer ) exchange_mem_info = FALSE;
 	else if ( !one_framebuffer && dri2_complete_cmd == DRI2_EXCHANGE_COMPLETE ) exchange_mem_info = TRUE;
 
-	if ( exchange_mem_info ) 
+	if ( exchange_mem_info )
 	{
-	//	ErrorF("EXCHANGING UMP ID 0x%x with 0x%x (%s)\n", ump_secure_id_get(front_privPixmap->mem_info->handle), ump_secure_id_get(back_privPixmap->mem_info->handle), dri2_complete_cmd == DRI2_EXCHANGE_COMPLETE ? "SWAP" : "FLIP" );
-		exchange( front_privPixmap->mem_info, back_privPixmap->mem_info );
+	    if( front_privPixmap->mem_info->usize == back_privPixmap->mem_info->usize )
+		{
+			//ErrorF("EXCHANGING UMP ID 0x%x with 0x%x (%s)\n", ump_secure_id_get(front_privPixmap->mem_info->handle), ump_secure_id_get(back_privPixmap->mem_info->handle), dri2_complete_cmd == DRI2_EXCHANGE_COMPLETE ? "SWAP" : "FLIP" );
+			exchange( front_privPixmap->mem_info, back_privPixmap->mem_info );
+		}
+		else
+		{
+			//ErrorF("EXCHANGING FAILED FOR UMP ID 0x%x size: %d with 0x%x size (%d)\n", ump_secure_id_get(front_privPixmap->mem_info->handle), front_privPixmap->mem_info->usize, ump_secure_id_get(back_privPixmap->mem_info->handle),back_privPixmap->mem_info->usize);
+			return 0;
+		}
 	}
 	else if(both_framebuffer)
 	{
 		exchange (front->driverPrivate, back->driverPrivate);
 	}
+
+	return 1;
 }
 
 static void platform_wait_for_vsync(ScrnInfoPtr pScrn, int fb_lcd_fd)
@@ -364,7 +348,7 @@ static void MaliDRI2CopyRegion( DrawablePtr pDraw, RegionPtr pRegion, DRI2Buffer
 
 /*
  * MaliDRI2ScheduleSwap is the implementation of DRI2SwapBuffers, this function
- * should wait for vblank event which will trigger registered event handler. 
+ * should wait for vblank event which will trigger registered event handler.
  * Event handler will do FLIP/SWAP/BLIT according to event type.
  *
  * TODO: current DRM doesn't support vblank well, so this function just do FLIP/
@@ -431,26 +415,39 @@ static int MaliDRI2ScheduleSwap(ClientPtr client, DrawablePtr pDraw, DRI2BufferP
 	}
 	else if(front_pixmap->drawable.width        == back_pixmap->drawable.width   &&
 			front_pixmap->drawable.height       == back_pixmap->drawable.height  &&
-			front_pixmap->drawable.bitsPerPixel == back_pixmap->drawable.bitsPerPixel) 
+			front_pixmap->drawable.bitsPerPixel == back_pixmap->drawable.bitsPerPixel)
 	{
 		PixmapPtr dst_pix = dri2_get_drawable_pixmap( dri2_get_drawable( pDraw, front ) );
-			
+
 		dri2_complete_cmd = DRI2_EXCHANGE_COMPLETE;
-		exchange_buffers(pDraw, front, back, dri2_complete_cmd);
-		//ErrorF("swap................ \n");
-		box.x1 = 0;
-		box.y1 = 0;
-		box.x2 = pDraw->width;
-		box.y2 = pDraw->height;
-		REGION_INIT(pScreen, &region, &box, 0);
+		if(exchange_buffers(pDraw, front, back, dri2_complete_cmd))
+		{
+			//ErrorF("swap ..., front_pixmap->drawable.width %d, front_pixmap->drawable.height %d, pDraw->width %d, pDraw->height %d\n",front_pixmap->drawable.width, front_pixmap->drawable.height, pDraw->width, pDraw->height );
+			box.x1 = 0;
+			box.y1 = 0;
+			box.x2 = pDraw->width;
+			box.y2 = pDraw->height;
+			REGION_INIT(pScreen, &region, &box, 0);
+
+			/* TODO: not sure if doing the translate is correct for a non-composite scenario */
+			RegionTranslate( &region, dst_pix->screen_x, dst_pix->screen_y );
+
+			DamageDamageRegion(pDraw, &region);
+
+			front_pixmap->drawable.serialNumber = NEXT_SERIAL_NUMBER ;
+			back_pixmap->drawable.serialNumber = NEXT_SERIAL_NUMBER ;
+		}
+		else
+		{
+			box.x1 = 0;
+			box.y1 = 0;
+			box.x2 = pDraw->width;
+			box.y2 = pDraw->height;
+			REGION_INIT(pScreen, &region, &box, 0);
 		
-		/* TODO: not sure if doing the translate is correct for a non-composite scenario */
-		RegionTranslate( &region, dst_pix->screen_x, dst_pix->screen_y );
-
-		DamageDamageRegion(pDraw, &region);
-
-		front_pixmap->drawable.serialNumber = NEXT_SERIAL_NUMBER ;
-		back_pixmap->drawable.serialNumber = NEXT_SERIAL_NUMBER ;
+			MaliDRI2CopyRegion(pDraw, &region, front, back);
+			dri2_complete_cmd = DRI2_BLIT_COMPLETE;
+		}
 	}
 	else
 	{
