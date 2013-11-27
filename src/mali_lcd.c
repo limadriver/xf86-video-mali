@@ -133,11 +133,13 @@ static void fbdev_lcd_output_restore(xf86OutputPtr output)
 
 static int fbdev_lcd_output_mode_valid(xf86OutputPtr output, DisplayModePtr pMode)
 {
-	MaliPtr fPtr = MALIPTR(output->scrn);
+	IGNORE( output );
+	IGNORE( pMode );
 
-	if( (pMode->HDisplay == (int)fPtr->fb_lcd_var.xres) && (pMode->VDisplay == (int)fPtr->fb_lcd_var.yres) ) return MODE_OK;
+	/* TODO: return MODE_ERROR in case of unsupported mode */
+	xf86DrvMsg(0, X_INFO, "Mode %i x %i valid\n", pMode->HDisplay, pMode->VDisplay );
 
-	return MODE_ERROR;
+	return MODE_OK;
 }
 
 static Bool fbdev_lcd_output_mode_fixup(xf86OutputPtr output, DisplayModePtr mode, DisplayModePtr adjusted_mode)
@@ -161,9 +163,28 @@ static void fbdev_lcd_output_commit(xf86OutputPtr output)
 
 static void fbdev_lcd_output_mode_set(xf86OutputPtr output, DisplayModePtr mode, DisplayModePtr adjusted_mode)
 {
+	MaliPtr fPtr = MALIPTR(output->scrn);
+
 	IGNORE( output );
 	IGNORE( mode );
 	IGNORE( adjusted_mode );
+
+	if ( ioctl( fPtr->fb_lcd_fd, FBIOGET_VSCREENINFO, &fPtr->fb_lcd_var ) < 0 )
+	{
+		xf86DrvMsg(0, X_INFO, "Unable to get VSCREENINFO\n");
+	}
+
+	fPtr->fb_lcd_var.xres = mode->HDisplay;
+	fPtr->fb_lcd_var.yres = mode->VDisplay;
+	fPtr->fb_lcd_var.xres_virtual = mode->HDisplay;
+	fPtr->fb_lcd_var.yres_virtual = mode->VDisplay*2;
+	xf86DrvMsg(0, X_INFO, "Changing mode to %i %i %i %i\n", fPtr->fb_lcd_var.xres, fPtr->fb_lcd_var.yres, fPtr->fb_lcd_var.xres_virtual, fPtr->fb_lcd_var.yres_virtual);
+
+	if ( ioctl( fPtr->fb_lcd_fd, FBIOPUT_VSCREENINFO, &fPtr->fb_lcd_var ) < 0 )
+	{
+		xf86DrvMsg(0, X_INFO, "Unable to set mode!\n");
+	}
+
 }
 
 static xf86OutputStatus fbdev_lcd_output_detect(xf86OutputPtr output)
@@ -173,13 +194,75 @@ static xf86OutputStatus fbdev_lcd_output_detect(xf86OutputPtr output)
 	return XF86OutputStatusConnected;
 }
 
+DisplayModePtr fbdev_make_mode( int xres, int yres, DisplayModePtr prev )
+{
+	DisplayModePtr mode_ptr;
+	unsigned int hactive_s = xres;
+	unsigned int vactive_s = yres;
+
+	mode_ptr = xnfcalloc(1, sizeof(DisplayModeRec));
+
+	mode_ptr->HDisplay = hactive_s;
+	mode_ptr->HSyncStart = hactive_s + 20;
+	mode_ptr->HSyncEnd = hactive_s + 40;
+	mode_ptr->HTotal = hactive_s + 80;
+
+	mode_ptr->VDisplay = vactive_s;
+	mode_ptr->VSyncStart = vactive_s + 20;
+	mode_ptr->VSyncEnd = vactive_s + 40;
+	mode_ptr->VTotal = vactive_s + 80;
+
+	mode_ptr->VRefresh = 60.0;
+
+	mode_ptr->Clock = (int) (mode_ptr->VRefresh * mode_ptr->VTotal * mode_ptr->HTotal / 1000.0);
+
+	mode_ptr->type = M_T_DRIVER;
+
+	xf86SetModeDefaultName(mode_ptr);
+		
+	mode_ptr->next = NULL;
+	mode_ptr->prev = prev;
+
+	return mode_ptr;
+}
+
 static DisplayModePtr fbdev_lcd_output_get_modes(xf86OutputPtr output)
 {
 	MaliPtr fPtr = MALIPTR(output->scrn);
 	DisplayModePtr mode_ptr;
+	ScrnInfoPtr pScrn = output->scrn;
 
 	unsigned int hactive_s = fPtr->fb_lcd_var.xres;
 	unsigned int vactive_s = fPtr->fb_lcd_var.yres;
+
+	if ( pScrn->modes != NULL )
+	{
+		/* Use the modes supplied by the implementation if available */
+		DisplayModePtr mode, first = mode = pScrn->modes;
+		DisplayModePtr modeptr = NULL, modeptr_prev = NULL, modeptr_first = NULL;
+		do {
+			int xres = mode->HDisplay;
+			int yres = mode->VDisplay;
+
+			xf86DrvMsg(0, X_INFO, "Adding mode: %i x %i\n", xres, yres);
+
+			if ( modeptr_first == NULL ) 
+			{
+				modeptr_first = fbdev_make_mode( xres, yres, NULL );
+				modeptr = modeptr_first;
+			}
+			else
+			{
+				modeptr->next = fbdev_make_mode( xres, yres, modeptr_prev);
+				modeptr = modeptr->next;
+			}
+			modeptr_prev = modeptr;
+
+			mode = mode->next;
+		} while (mode != NULL && mode != first);
+
+		return modeptr_first;
+	}
 
 	mode_ptr = xnfcalloc(1, sizeof(DisplayModeRec));
 

@@ -112,7 +112,12 @@ static XF86ModuleVersionInfo MaliVersRec =
 	{0,0,0,0}
 };
 
-_X_EXPORT XF86ModuleData maliModuleData = { &MaliVersRec, MaliSetup, NULL };
+_X_EXPORT XF86ModuleData maliModuleData = 
+{
+	&MaliVersRec, 
+	MaliSetup, 
+	NULL
+};
 
 pointer MaliSetup(pointer module, pointer opts, int *errmaj, int *errmin)
 {
@@ -199,12 +204,36 @@ static void MaliIdentify(int flags)
 	xf86PrintChipsets(MALI_NAME, "driver for Mali Framebuffer", MaliChipsets);
 }
 
-static Bool fbdev_crtc_config_resize( ScrnInfoPtr scrn, int width, int height )
+static Bool fbdev_crtc_config_resize( ScrnInfoPtr pScrn, int width, int height )
 {
-	xf86DrvMsg(scrn->scrnIndex, X_INFO, "%s: width = %d height = %d\n", __FUNCTION__, width, height);
+	MaliPtr fPtr = MALIPTR(pScrn);
+	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
+	int pitch, i;
 
-	scrn->virtualX = width;   
-	scrn->virtualY = height;   
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "%s: width = %d height = %d\n", __FUNCTION__, width, height);
+
+	/* we currently need EXA for this to work */
+	if( fPtr->exa == NULL ) return TRUE;
+
+	/* calculate new pitch, align to any HW requirements if needed */
+	pitch = width * (pScrn->bitsPerPixel/8);
+
+	pScrn->virtualX = width;   
+	pScrn->virtualY = height;
+
+	/* update pitch setting in EXA */
+	(*pScrn->pScreen->GetScreenPixmap)(pScrn->pScreen)->devKind = pitch;
+	pScrn->displayWidth = pitch / (pScrn->bitsPerPixel/8);
+
+	/* reinitialize the crtc to get the new setting */
+	for ( i=0; i<xf86_config->num_crtc; i++ )
+	{
+		xf86CrtcPtr crtc = xf86_config->crtc[i];
+		if ( crtc->enabled )
+		{
+			xf86CrtcSetMode( crtc, &crtc->mode, crtc->rotation, crtc->x, crtc->y );
+		}
+	}
 
 	return TRUE;          
 }
@@ -464,9 +493,14 @@ void MaliHWRestore(ScrnInfoPtr pScrn)
 
 Bool MaliHWProbe( char *device, char **namep )
 {
-	TRACE("MaliHWProbe");
+	int fd;
 
-	if ( -1 == mali_open( -1, device, namep ) ) return FALSE;
+	TRACE("MaliHWProbe");
+	
+	if ((fd = mali_open( -1, device, namep )) == -1 ) 
+		return FALSE;
+
+	close(fd);
 
 	return TRUE;
 }
@@ -978,6 +1012,24 @@ static Bool MaliPreInit(ScrnInfoPtr pScrn, int flags)
 		xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "xf86InitialConfiguration failed!\n" );
 		return FALSE;
 	}
+
+	/* collect the available video modes */
+	MaliHWSetVideoModes(pScrn);
+	{
+		DisplayModePtr mode, first = mode = pScrn->modes;
+
+		if (mode != NULL) 
+		{
+			do {
+				mode->status = xf86CheckModeForMonitor(mode, pScrn->monitor);
+				mode = mode->next;
+			} while (mode != NULL && mode != first);
+		}
+		xf86PruneDriverModes(pScrn);
+	}
+	if ( NULL == pScrn->modes ) xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "Failed to get video modes!\n" );
+	pScrn->currentMode = pScrn->modes;
+
 
 	pScrn->displayWidth = pScrn->virtualX;
 
