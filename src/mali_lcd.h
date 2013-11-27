@@ -20,17 +20,15 @@
  * THE SOFTWARE.
  */
 
-#ifndef _MALI_DRI_H_
-#define _MALI_DRI_H_
+#ifndef _MALI_LCD_H_
+#define _MALI_LCD_H_
 
-enum dri_type
-{
-	DRI_DISABLED,
-	DRI_NONE,
-	DRI_2,
-};
+#define DPMSModeOn         0
+#define DPMSModeStandby	   1
+#define DPMSModeSuspend    2
+#define DPMSModeOff	       3
 
-extern Bool MaliDRI2ScreenInit( ScreenPtr pScreen );
-extern void MaliDRI2CloseScreen( ScreenPtr pScreen );
+extern Bool FBDEV_lcd_init(ScrnInfoPtr pScrn);
 
-#endif /* _MALI_DRI_H_ */
+#endif /* _MALI_LCD_H_ */
+

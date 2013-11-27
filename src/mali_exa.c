@@ -26,72 +26,56 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include "mali_exa.h"
+
+#include "mali_def.h"
 #include "mali_fbdev.h"
+#include "mali_exa.h"
 
 static struct mali_info mi;
 
-#ifdef USE_TRACING
-#define TRACE_ENTER()  xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "%s: ENTER\n", __FUNCTION__)
-#define TRACE_EXIT()   xf86DrvMsg(mi.pScrn->scrnIndex, X_INFO, "%s: EXIT\n", __FUNCTION__)
-#else
-#define TRACE_ENTER()
-#define TRACE_EXIT()
-#endif
-
 #define MALI_EXA_FUNC(s) exa->s = mali ## s
-#define IGNORE( a ) ( a = a );
 #define MALI_ALIGN( value, base ) (((value) + ((base) - 1)) & ~((base) - 1))
 
 static int fd_fbdev = -1;
 
 static Bool maliPrepareSolid( PixmapPtr pPixmap, int alu, Pixel planemask, Pixel fg )
 {
-	TRACE_ENTER();
 	IGNORE( pPixmap );
 	IGNORE( alu );
 	IGNORE( planemask );
 	IGNORE( fg );
-	TRACE_EXIT();
 
  	return FALSE;
 }
 
 static void maliSolid( PixmapPtr pPixmap, int x1, int y1, int x2, int y2 )
 {
-	TRACE_ENTER();
 	IGNORE( pPixmap );
 	IGNORE( x1 );
 	IGNORE( y1 );
 	IGNORE( x2 );
 	IGNORE( y2 );
-	TRACE_EXIT();
 }
 
 static void maliDoneSolid( PixmapPtr pPixmap )
 {
-	TRACE_ENTER();
 	IGNORE( pPixmap );
-	TRACE_EXIT();
 }
 
 static Bool maliPrepareCopy( PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir, int ydir, int alu, Pixel planemask )
 {
-	TRACE_ENTER();
 	IGNORE( pSrcPixmap );
 	IGNORE( pDstPixmap );
 	IGNORE( xdir );
 	IGNORE( ydir );
 	IGNORE( alu );
 	IGNORE( planemask );
-	TRACE_EXIT();
 
 	return FALSE;
 }
 
 static void maliCopy( PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY, int width, int height )
 {
-	TRACE_ENTER();
 	IGNORE( pDstPixmap );
 	IGNORE( srcX );
 	IGNORE( srcY );
@@ -99,34 +83,27 @@ static void maliCopy( PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int ds
 	IGNORE( dstY );
 	IGNORE( width );
 	IGNORE( height );
-	TRACE_EXIT();
 }
 
 static void maliDoneCopy( PixmapPtr pDstPixmap )
 {
-	TRACE_ENTER();
 	IGNORE( pDstPixmap );
-	TRACE_EXIT();
 }
 
 static void maliWaitMarker( ScreenPtr pScreen, int marker )
 {
-	TRACE_ENTER();
 	IGNORE( pScreen );
 	IGNORE( marker );
-	TRACE_EXIT();
 }
 
 static void* maliCreatePixmap(ScreenPtr pScreen, int size, int align )
 {
 	PrivPixmap *privPixmap = calloc(1, sizeof(PrivPixmap));
 
-	TRACE_ENTER();
 	IGNORE( pScreen );
 	IGNORE( size );
 	IGNORE( align );
 	privPixmap->bits_per_pixel = 0;
-	TRACE_EXIT();
 
 	return privPixmap;
 }
@@ -135,7 +112,6 @@ static void maliDestroyPixmap(ScreenPtr pScreen, void *driverPriv )
 {
 	PrivPixmap *privPixmap = (PrivPixmap *)driverPriv;
 
-	TRACE_ENTER();
 	IGNORE( pScreen );
 	if ( NULL != privPixmap->mem_info )
 	{
@@ -144,7 +120,6 @@ static void maliDestroyPixmap(ScreenPtr pScreen, void *driverPriv )
 		privPixmap->mem_info = NULL;
 		free( privPixmap );
 	}
-	TRACE_EXIT();
 }
 
 static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int depth, int bitsPerPixel, int devKind, pointer pPixData)
@@ -153,11 +128,8 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 	PrivPixmap *privPixmap = (PrivPixmap *)exaGetPixmapDriverPrivate(pPixmap);
 	mali_mem_info *mem_info;
 
-	TRACE_ENTER();
-
 	if (!pPixmap) 
 	{
-		TRACE_EXIT();
 		return FALSE;
 	}
 
@@ -172,7 +144,6 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		mem_info = privPixmap->mem_info;
 		if ( mem_info ) 
 		{
-			TRACE_EXIT();
 			return TRUE;
 		}
 
@@ -181,7 +152,6 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		if (!mem_info) 
 		{
 			xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to allocate for memory metadata\n", __FUNCTION__, __LINE__);
-			TRACE_EXIT();
 			return FALSE;
 		}
 
@@ -193,7 +163,6 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 			free( mem_info );
 			privPixmap->mem_info = NULL;
 			xf86DrvMsg( mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] UMP failed to retrieve secure id\n", __FUNCTION__, __LINE__);
-			TRACE_EXIT();
 			return FALSE;
 		}
 
@@ -203,7 +172,6 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 			xf86DrvMsg( mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] UMP failed to create handle from secure id\n", __FUNCTION__, __LINE__);
 			free( mem_info );
 			privPixmap->mem_info = NULL;
-			TRACE_EXIT();
 			return FALSE;
 		}
 
@@ -213,7 +181,6 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		privPixmap->mem_info = mem_info;
 		if( bitsPerPixel != 0 ) privPixmap->bits_per_pixel = bitsPerPixel;
 
-		TRACE_EXIT();
 		return TRUE;
 	}
 	else
@@ -225,11 +192,9 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 	{
 		if ( privPixmap->mem_info != NULL ) 
 		{
-			TRACE_EXIT();
 			return TRUE;
 		}
 
-		TRACE_EXIT();
 		return FALSE;
 	}
 
@@ -243,7 +208,6 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 
 	if ( mem_info && mem_info->usize == size ) 
 	{
-		TRACE_EXIT();
 		return TRUE;
 	}
 
@@ -253,13 +217,11 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		mem_info->handle = NULL;
 		memset(privPixmap, 0, sizeof(*privPixmap));
 
-		TRACE_EXIT();
 		return TRUE;
 	}
 
 	if (!size) 
 	{
-		TRACE_EXIT();
 		return TRUE;
 	}
 
@@ -269,25 +231,22 @@ static Bool maliModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int
 		if (!mem_info) 
 		{
 			xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to allocate memory metadata\n", __FUNCTION__, __LINE__);
-			TRACE_EXIT();
 			return FALSE;
 		}
 	}
 
-	mem_info->handle = ump_ref_drv_allocate( size, UMP_REF_DRV_CONSTRAINT_PHYSICALLY_LINEAR );
+	mem_info->handle = ump_ref_drv_allocate( size, UMP_REF_DRV_CONSTRAINT_USE_CACHE );
 	if ( UMP_INVALID_MEMORY_HANDLE == mem_info->handle )
 	{
 		xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] failed to allocate UMP memory (%i bytes)\n", __FUNCTION__, __LINE__, size);
-		TRACE_EXIT();
 		return FALSE;
 	}
 
 	mem_info->usize = size;
+	privPixmap->gpu_access = FALSE;
 	privPixmap->mem_info = mem_info;
 	privPixmap->mem_info->usize = size;
 	privPixmap->bits_per_pixel = 16;
-
-	TRACE_EXIT();
 
 	return TRUE;
 }
@@ -297,21 +256,15 @@ static Bool maliPixmapIsOffscreen( PixmapPtr pPix )
 	ScreenPtr pScreen = pPix->drawable.pScreen;
 	PrivPixmap *privPixmap = (PrivPixmap *)exaGetPixmapDriverPrivate(pPix);
 
-	TRACE_ENTER();
-
 	if (pScreen->GetScreenPixmap(pScreen) == pPix ) 
 	{
-		TRACE_EXIT();
 		return TRUE;
 	}
 
 	if ( privPixmap )
 	{
-		TRACE_EXIT();
 		return pPix->devPrivate.ptr ? FALSE : TRUE;
 	}
-
-	TRACE_EXIT();
 
 	return FALSE;
 }
@@ -321,16 +274,13 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 	PrivPixmap *privPixmap = (PrivPixmap *)exaGetPixmapDriverPrivate(pPix);
 	mali_mem_info *mem_info;
 
-	TRACE_ENTER();
 	IGNORE( index );
 
 	if ( !privPixmap ) 
 	{
 		xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] Failed to get private pixmap data\n", __FUNCTION__, __LINE__);
-		TRACE_EXIT();
 		return FALSE;
 	}
-
 
 	mem_info = privPixmap->mem_info;
 	if ( NULL != mem_info ) 
@@ -343,7 +293,6 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 	else
 	{
 		xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] No mem_info on pixmap\n", __FUNCTION__, __LINE__);
-		TRACE_EXIT();
 		return FALSE;
 	}
 
@@ -351,12 +300,15 @@ static Bool maliPrepareAccess(PixmapPtr pPix, int index)
 	if ( NULL == pPix->devPrivate.ptr ) 
 	{
 		xf86DrvMsg(mi.pScrn->scrnIndex, X_ERROR, "[%s:%d] cpu address not set\n", __FUNCTION__, __LINE__);
-		TRACE_EXIT();
 		return FALSE;
 	}
 
+	if ( privPixmap->gpu_access )
+	{
+		ump_cpu_msync_now( mem_info->handle, UMP_MSYNC_CLEAN_AND_INVALIDATE, (void *)privPixmap->addr, mem_info->usize );
+	}
+
 	privPixmap->refs++;
-	TRACE_EXIT();
 
 	return TRUE;
 }
@@ -366,22 +318,24 @@ static void maliFinishAccess(PixmapPtr pPix, int index)
 	PrivPixmap *privPixmap = (PrivPixmap *)exaGetPixmapDriverPrivate(pPix);
 	mali_mem_info *mem_info;
 
-	TRACE_ENTER();
 	IGNORE( index );
 
 	if ( !privPixmap ) 
 	{
-		TRACE_EXIT();
 		return;
 	}
 
 	if ( !pPix ) 
 	{
-		TRACE_EXIT();
 		return;
 	}
 
 	mem_info = privPixmap->mem_info;
+
+	if ( privPixmap->gpu_access )
+	{
+		ump_cpu_msync_now( mem_info->handle, UMP_MSYNC_CLEAN, (void *)privPixmap->addr, mem_info->usize );
+	}
 
 	if ( !privPixmap->isFrameBuffer ) 
 	{
@@ -393,25 +347,20 @@ static void maliFinishAccess(PixmapPtr pPix, int index)
 
 	pPix->devPrivate.ptr = NULL;
 	privPixmap->refs--;
-
-	TRACE_EXIT();
 }
 
 static Bool maliCheckComposite( int op, PicturePtr pSrcPicture, PicturePtr pMaskPicture, PicturePtr pDstPicture )
 {
-	TRACE_ENTER();
 	IGNORE( op );
 	IGNORE( pSrcPicture );
 	IGNORE( pMaskPicture );
 	IGNORE( pDstPicture );
-	TRACE_EXIT();
 
 	return FALSE;
 }
 
 static Bool maliPrepareComposite( int op, PicturePtr pSrcPicture, PicturePtr pMaskPicture, PicturePtr pDstPicture, PixmapPtr pSrcPixmap, PixmapPtr pMask, PixmapPtr pDstPixmap )
 {
-	TRACE_ENTER();
 	IGNORE( op );
 	IGNORE( pSrcPicture );
 	IGNORE( pMaskPicture );
@@ -419,14 +368,12 @@ static Bool maliPrepareComposite( int op, PicturePtr pSrcPicture, PicturePtr pMa
 	IGNORE( pSrcPixmap );
 	IGNORE( pMask );
 	IGNORE( pDstPixmap );
-	TRACE_EXIT();
 
 	return FALSE;
 }
 
 static void maliComposite( PixmapPtr pDstPixmap, int srcX, int srcY, int maskX, int maskY, int dstX, int dstY, int width, int height)
 {
-	TRACE_ENTER();
 	IGNORE( pDstPixmap );
 	IGNORE( srcX );
 	IGNORE( srcY );
@@ -436,14 +383,11 @@ static void maliComposite( PixmapPtr pDstPixmap, int srcX, int srcY, int maskX, 
 	IGNORE( dstY );
 	IGNORE( width );
 	IGNORE( height );
-	TRACE_EXIT();
 }
 
 static void maliDoneComposite( PixmapPtr pDst )
 {
-	TRACE_ENTER();
 	IGNORE( pDst );
-	TRACE_EXIT();
 }
 
 

@@ -29,14 +29,17 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+#include "xf86.h"
+#include "xf86drm.h"
+#include "dri2.h"
+
+#include "mali_def.h"
+#include "mali_fbdev.h"
+#include "mali_exa.h"
 #include "mali_dri.h"
 
-#define IGNORE( a ) ( a = a )
-
-#define FBIO_WAITFORVSYNC       _IOW('F', 0x20, __u32)
-
-
-extern XF86ModuleData dri2ModuleData;
+#define  FBIO_WAITFORVSYNC    _IOW('F', 0x20, __u32)
 
 typedef struct
 {
@@ -177,6 +180,16 @@ static DRI2Buffer2Ptr MaliDRI2CreateBuffer( DrawablePtr pDraw, unsigned int atta
 
 		privates->pPixmap = pPixmap;
 		privPixmap = (PrivPixmap *)exaGetPixmapDriverPrivate( pPixmap );
+
+		if (!privPixmap->isFrameBuffer)
+			privPixmap->gpu_access = TRUE;
+	
+		/* if no CPU access the memory before dri2GetBuffers, no need to sync the CPU cache */
+		if ( privPixmap->addr )
+		{
+			ump_cpu_msync_now( privPixmap->mem_info->handle, UMP_MSYNC_CLEAN, (void *)privPixmap->addr, privPixmap->mem_info->usize );
+		}
+
 		buffer->pitch = pPixmap->devKind;
 		buffer->cpp = pPixmap->drawable.bitsPerPixel / 8;
 		buffer->name = ump_secure_id_get( privPixmap->mem_info->handle );

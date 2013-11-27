@@ -22,7 +22,21 @@
 
 #ifndef _MALI_DEF_H_
 #define _MALI_DEF_H_
-#include "exa.h"
 
-Bool maliSetupExa( ScreenPtr pScreen, ExaDriverPtr exa, int xres, int yres, unsigned char *virt );
+#define MALI_DEBUG  1
+
+#if MALI_DEBUG
+#define TRACE_ENTER()    xf86DrvMsg(pScrn->scrnIndex, X_INFO, "%s: ENTER\n", __FUNCTION__)
+#define TRACE_EXIT()     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "%s: EXIT\n", __FUNCTION__)
+#define PRINT_STR(str)   xf86DrvMsg(pScrn->scrnIndex, X_INFO, "%s\n", str)
+#define ERROR_STR(str)   ErrorF("%s\n", str)
+#else
+#define TRACE_ENTER()
+#define TRACE_EXIT()
+#define PRINT_STR(str)
+#define ERROR_STR(str)
+#endif
+
+#define IGNORE( a )  ( a = a );
+
 #endif

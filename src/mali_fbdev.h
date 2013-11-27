@@ -1,31 +1,33 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2010 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2010 ARM Limited. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
 #ifndef _MALI_FBDEV_DRIVER_H_
 #define _MALI_FBDEV_DRIVER_H_
 
-#include <linux/videodev2.h>
+//#include <linux/videodev2.h>
 #include <linux/fb.h>
+
+#include "xf86.h"
 #include "exa.h"
-
-#define DPMSModeOn	0
-#define DPMSModeStandby	1
-#define DPMSModeSuspend	2
-#define DPMSModeOff	3
-
-enum dri_type
-{
-	DRI_DISABLED,
-	DRI_NONE,
-	DRI_2,
-};
 
 typedef struct {
 	unsigned char  *fbstart;
@@ -66,20 +68,6 @@ typedef struct {
 #define MALIPTR(p) ((MaliPtr)((p)->driverPrivate))
 #define MALIHWPTRLVAL(p) (p)->privates[malihwPrivateIndex].ptr
 #define MALIHWPTR(p) ((MaliHWPtr)(MALIHWPTRLVAL(p)))
-
-//#define MALI_DEBUG_MSG_ENABLE
-
-#ifdef MALI_DEBUG_MSG_ENABLE
-#define MALIDBGMSG(type, format, args...)       xf86Msg(type, format, args)
-#else
-#define MALIDBGMSG(type, format, args...)
-#endif
-
-
-Bool FBDEV_lcd_init(ScrnInfoPtr pScrn);
-
-Bool MaliDRI2ScreenInit( ScreenPtr pScreen );
-void MaliDRI2CloseScreen( ScreenPtr pScreen );
 
 #endif /* _MALI_FBDEV_DRIVER_H_ */
 

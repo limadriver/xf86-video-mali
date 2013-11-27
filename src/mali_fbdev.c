@@ -1,18 +1,30 @@
 /*
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- * (C) COPYRIGHT 2010 ARM Limited
- * ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
+ * Copyright (C) 2010 ARM Limited. All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
  */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <string.h>
+//#include <string.h>
 #include <errno.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -31,19 +43,15 @@
 
 #include "mali_def.h"
 #include "mali_fbdev.h"
-#include "exa.h"
+#include "mali_exa.h"
+#include "mali_dri.h"
+#include "mali_lcd.h"
 
-#define TRACE_ENTER(str) \
-	do { if (1) ErrorF("mali: " str " %d\n",pScrn->scrnIndex); } while (0)
-#define TRACE_EXIT(str) \
-	do { if (1) ErrorF("mali: " str " done\n"); } while (0)
-#define TRACE(str) \
-	do { if (1) ErrorF("mali trace: " str "\n"); } while (0)
-#define IGNORE( a ) ( a = a );
-#define PAGE_MASK               (~(getpagesize() - 1))
-#define MALI_VERSION		4000
-#define MALI_NAME		"MALI"
-#define MALI_DRIVER_NAME	"mali"
+#define MALI_VERSION        4000
+#define MALI_NAME           "MALI"
+#define MALI_DRIVER_NAME    "mali"
+
+#define PAGE_MASK    (~(getpagesize() - 1))
 
 static const OptionInfoRec * MaliAvailableOptions(int chipid, int busid);
 static void	MaliIdentify(int flags);
@@ -54,9 +62,6 @@ static Bool	MaliCloseScreen(int scrnIndex, ScreenPtr pScreen);
 
 static int pix24bpp = 0;
 static int malihwPrivateIndex = -1;
-
-static Bool debug = FALSE;
-
 
 _X_EXPORT DriverRec MALI = {
 	MALI_VERSION,
@@ -79,20 +84,17 @@ static SymTabRec MaliChipsets[] = {
 
 /* Supported options */
 typedef enum {
-	OPTION_DEBUG,
 	OPTION_DRI2,
 	OPTION_DRI2_PAGE_FLIP,
 	OPTION_DRI2_WAIT_VSYNC,
 } FBDevOpts;
 
 static const OptionInfoRec MaliOptions[] = {
-	{ OPTION_DEBUG,            "debug",	          OPTV_BOOLEAN, {0}, FALSE },
 	{ OPTION_DRI2,             "DRI2",            OPTV_BOOLEAN, {0}, TRUE  },
 	{ OPTION_DRI2_PAGE_FLIP,   "DRI2_PAGE_FLIP",  OPTV_BOOLEAN, {0}, FALSE },
 	{ OPTION_DRI2_WAIT_VSYNC,  "DRI2_WAIT_VSYNC", OPTV_BOOLEAN, {0}, FALSE },
 	{ -1,                      NULL,	             OPTV_NONE,    {0}, FALSE }
 };
-
 
 #ifdef XFree86LOADER
 
@@ -123,7 +125,7 @@ pointer MaliSetup(pointer module, pointer opts, int *errmaj, int *errmin)
 {
 	static Bool setupDone = FALSE;
 
-	TRACE("MaliSetup");
+	ERROR_STR("MaliSetup");
 
 	IGNORE(opts);
 	IGNORE(errmin);
@@ -133,7 +135,7 @@ pointer MaliSetup(pointer module, pointer opts, int *errmaj, int *errmin)
 		setupDone = TRUE;
 		xf86AddDriver(&MALI, module, HaveDriverFuncs);
 		return (pointer)1;
-	} 
+	}
 	else 
 	{
 		if (errmaj) *errmaj = LDR_ONCEONLY;
@@ -146,7 +148,7 @@ pointer MaliSetup(pointer module, pointer opts, int *errmaj, int *errmin)
 
 static Bool MaliGetRec(ScrnInfoPtr pScrn)
 {
-	TRACE("MaliGetRec");
+	TRACE_ENTER();
 
 	if (pScrn->driverPrivate != NULL) return TRUE;
 	
@@ -157,7 +159,7 @@ static Bool MaliGetRec(ScrnInfoPtr pScrn)
 
 static void MaliFreeRec(ScrnInfoPtr pScrn)
 {
-	TRACE("MaliFreeRec");
+	TRACE_ENTER();
 
 	if (pScrn->driverPrivate == NULL) return;
 	free(pScrn->driverPrivate);
@@ -189,7 +191,8 @@ void MaliHWFreeRec( ScrnInfoPtr pScrn )
 
 static const OptionInfoRec * MaliAvailableOptions(int chipid, int busid)
 {
-	TRACE("MaliAvailableOptions");
+	ERROR_STR("MaliAvailableOptions");
+
 	IGNORE(chipid);
 	IGNORE(busid);
 
@@ -198,7 +201,8 @@ static const OptionInfoRec * MaliAvailableOptions(int chipid, int busid)
 
 static void MaliIdentify(int flags)
 {
-	TRACE("MaliIdentify");
+	ERROR_STR("MaliIdentify");
+
 	IGNORE(flags);
 
 	xf86PrintChipsets(MALI_NAME, "driver for Mali Framebuffer", MaliChipsets);
@@ -286,17 +290,6 @@ static void mali_check_exa_options( ScrnInfoPtr pScrn )
 	/* EXA specific options checked here */
 }
 
-static void mali_check_misc_options( ScrnInfoPtr pScrn )
-{
-	MaliPtr fPtr = MALIPTR(pScrn);
-
-	if ( xf86ReturnOptValBool(fPtr->Options, OPTION_DEBUG, FALSE ) )
-	{
-		xf86DrvMsg( pScrn->scrnIndex, X_CONFIG, "DEBUG output enabled\n");
-		debug = TRUE;
-	}
-}
-
 static const xf86CrtcConfigFuncsRec fbdev_crtc_config_funcs = 
 {
 	.resize = fbdev_crtc_config_resize,
@@ -306,7 +299,7 @@ static void FBDev_crtc_config( ScrnInfoPtr pScrn )
 {
 	xf86CrtcConfigPtr xf86_config;
 	int max_width, max_height;
-	TRACE("FBDev_crtc_config");
+	TRACE_ENTER();
 
 	/* Allocate an xf86CrtcConfig */
 	xf86CrtcConfigInit (pScrn, &fbdev_crtc_config_funcs);
@@ -316,7 +309,7 @@ static void FBDev_crtc_config( ScrnInfoPtr pScrn )
 	max_height = 2048;
 
 	xf86CrtcSetSizeRange (pScrn, 640, 480, max_width, max_height);
-	TRACE_EXIT("FBDev_crtc_config");
+	TRACE_EXIT();
 }
 
 static int mali_open( int scrnIndex, char *device, char **namep )
@@ -372,7 +365,7 @@ static void calculateFbmem_len(MaliHWPtr fPtr)
 int MaliHWGetLineLength( ScrnInfoPtr pScrn )
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
-	TRACE("MaliHWGetLineLength");
+	TRACE_ENTER();
 
 	if ( fPtr->fix.line_length ) return fPtr->fix.line_length;
 
@@ -383,7 +376,7 @@ void* MaliHWMapVidmem(ScrnInfoPtr pScrn)
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWMapVidmem"); 
+	TRACE_ENTER();
 
 	if ( NULL == fPtr->fbmem )
 	{
@@ -409,7 +402,8 @@ Bool MaliHWSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode, Bool check)
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWSetMode");
+	TRACE_ENTER();
+
 	IGNORE(fPtr);
 	IGNORE(mode);
 	IGNORE(check);
@@ -421,7 +415,7 @@ int MaliHWLinearOffset(ScrnInfoPtr pScrn)
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWLinearOffset");
+	TRACE_ENTER();
 
 	return fPtr->fboff;
 }
@@ -430,7 +424,7 @@ Bool MaliHWUnmapVidmem(ScrnInfoPtr pScrn)
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWUnmapVidmem");
+	TRACE_ENTER();
 	if (NULL != fPtr->fbmem)
 	{
 		if (-1 == munmap(fPtr->fbmem, fPtr->fbmem_len)) xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "munmap fbmem: %s\n", strerror(errno));
@@ -444,7 +438,7 @@ Bool MaliHWModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWModeInit");
+	TRACE_ENTER();
 
 	pScrn->vtSema = TRUE;
 
@@ -479,7 +473,7 @@ void MaliHWSave(ScrnInfoPtr pScrn)
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWSave");
+	TRACE_ENTER();	
 	if (0 != ioctl(fPtr->fd,FBIOGET_VSCREENINFO,(void*)(&fPtr->saved_var))) xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "FBIOGET_VSCREENINFO: %s\n", strerror(errno));
 }
 
@@ -487,7 +481,7 @@ void MaliHWRestore(ScrnInfoPtr pScrn)
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWRestore");
+	TRACE_ENTER();
 	if (0 != ioctl(fPtr->fd,FBIOPUT_VSCREENINFO,(void*)(&fPtr->saved_var))) xf86DrvMsg(pScrn->scrnIndex, X_ERROR,"FBIOPUT_VSCREENINFO: %s\n", strerror(errno));
 }
 
@@ -495,8 +489,8 @@ Bool MaliHWProbe( char *device, char **namep )
 {
 	int fd;
 
-	TRACE("MaliHWProbe");
-	
+	ERROR_STR("MaliHWProbe");
+
 	if ((fd = mali_open( -1, device, namep )) == -1 ) 
 		return FALSE;
 
@@ -512,7 +506,7 @@ void MaliHWLoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices, LOCO *col
 	unsigned short red,green,blue;
 	int i;         
 
-	TRACE("MaliHWLoadPalette");
+	TRACE_ENTER();
 	IGNORE(pVisual);
 
 	cmap.len   = 1;
@@ -536,7 +530,7 @@ Bool MaliHWSaveScreen(ScreenPtr pScreen, int mode)
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 	unsigned long unblank;
 
-	TRACE("MaliHWSaveScreen");
+	TRACE_ENTER();
 
 	if (!pScrn->vtSema) return TRUE;
 
@@ -555,7 +549,8 @@ ModeStatus MaliHWValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int
 {
 	ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
 
-	TRACE("MaliHWValidMode");
+	TRACE_ENTER();
+
 	IGNORE(verbose);
 	IGNORE(flags);
 
@@ -568,7 +563,7 @@ Bool MaliHWSwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 {
 	ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
 
-	TRACE("MaliHWSwitchMode");
+	TRACE_ENTER();
 	IGNORE(flags);
 
 	if (!MaliHWSetMode(pScrn, mode, FALSE)) return FALSE;
@@ -581,7 +576,7 @@ void MaliHWAdjustFrame(int scrnIndex, int x, int y, int flags)
 	ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWAdjustFrame");
+	TRACE_ENTER();
 	IGNORE(flags);
 
 	if ( x < 0 || x + fPtr->var.xres > fPtr->var.xres_virtual || y < 0 || y + fPtr->var.yres > fPtr->var.yres_virtual ) return;
@@ -598,7 +593,7 @@ Bool MaliHWEnterVT(int scrnIndex, int flags)
 {
 	ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
 
-	TRACE("MaliHWEnterVT");
+	TRACE_ENTER();
 	IGNORE(flags);
 
 	if (!MaliHWModeInit(pScrn, pScrn->currentMode)) return FALSE;
@@ -611,7 +606,7 @@ void MaliHWLeaveVT(int scrnIndex, int flags)
 {
 	ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
 
-	TRACE("MaliHWLeaveVT");
+	TRACE_ENTER();
 	IGNORE(flags);
 
 	MaliHWRestore(pScrn);
@@ -622,23 +617,23 @@ void MaliHWDPMSSet(ScrnInfoPtr pScrn, int mode, int flags)
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 	unsigned long fbmode;
 
-	TRACE("MaliHWDPMSSet");
+	TRACE_ENTER();
 	IGNORE(flags);
 
 	if (!pScrn->vtSema) return;
 
 	switch (mode) 
 	{
-		case 0/*DPMSModeOn*/:
+		case DPMSModeOn:
 			fbmode = 0;
 			break; 
-		case 1/*DPMSModeStandby*/:
+		case DPMSModeStandby:
 			fbmode = 2;
 			break;
-		case 2/*DPMSModeSuspend*/:
+		case DPMSModeSuspend:
 			fbmode = 3;
 			break;
-		case 3/*DPMSModeOff*/:
+		case DPMSModeOff:
 			fbmode = 4;
 			break;
 		default:
@@ -669,7 +664,7 @@ static Bool MaliProbe( DriverPtr drv, int flags )
 	GDevPtr *devSections;
 	char *dev = "/dev/fb0";
 
-	TRACE("MaliProbe");
+	ERROR_STR("MaliProbe");
 
 	if (flags & PROBE_DETECT) return FALSE;
 
@@ -713,7 +708,7 @@ Bool MaliHWInit( ScrnInfoPtr pScrn, char *device )
 {
 	MaliHWPtr fPtr;
 
-	TRACE("MaliHWInit");
+	TRACE_ENTER();
 
 	MaliHWGetRec( pScrn );
 	fPtr = MALIHWPTR( pScrn );
@@ -745,7 +740,7 @@ int MaliHWGetDepth( ScrnInfoPtr pScrn, int *fbbpp )
 {
 	MaliHWPtr fPtr = MALIHWPTR( pScrn );
 
-	TRACE("MaliHWGetDepth");
+	TRACE_ENTER();
 
 	if ( fbbpp ) *fbbpp = fPtr->var.bits_per_pixel;
 
@@ -760,7 +755,7 @@ int MaliHWGetDepth( ScrnInfoPtr pScrn, int *fbbpp )
 int MaliHWGetVidmem( ScrnInfoPtr pScrn )
 {
 	MaliHWPtr fPtr = MALIHWPTR( pScrn );
-	TRACE("HWGetVidmem");
+	TRACE_ENTER();
 
 	return fPtr->fix.smem_len;
 }
@@ -768,7 +763,7 @@ int MaliHWGetVidmem( ScrnInfoPtr pScrn )
 char *MaliHWGetName( ScrnInfoPtr pScrn )
 {
 	MaliHWPtr fPtr = MALIHWPTR( pScrn );
-	TRACE("MaliHWGetName");
+	TRACE_ENTER();
 
 	return fPtr->fix.id;
 }
@@ -776,7 +771,7 @@ char *MaliHWGetName( ScrnInfoPtr pScrn )
 int MaliHWGetFD( ScrnInfoPtr pScrn )
 {
 	MaliHWPtr fPtr;
-	TRACE("MaliHWGetFD");
+	TRACE_ENTER();
 
 	MaliHWGetRec(pScrn);
 	fPtr = MALIHWPTR(pScrn);
@@ -789,7 +784,7 @@ void MaliHWSetVideoModes(ScrnInfoPtr pScrn)
 	char **modename;
 	DisplayModePtr mode, this, last = pScrn->modes;
 
-	TRACE("MaliHWSetVideoModes");
+	TRACE_ENTER();
 
 	if ( NULL == pScrn->display->modes ) return;
 
@@ -840,7 +835,7 @@ void MaliHWUseBuildinMode(ScrnInfoPtr pScrn)
 {
 	MaliHWPtr fPtr = MALIHWPTR(pScrn);
 
-	TRACE("MaliHWUseBuildinMode");
+	TRACE_ENTER();
 	pScrn->modes    = &fPtr->buildin;
 	pScrn->virtualX = pScrn->display->virtualX; 
 	pScrn->virtualY = pScrn->display->virtualY; 
@@ -898,7 +893,7 @@ static Bool MaliPreInit(ScrnInfoPtr pScrn, int flags)
 	MaliPtr fPtr;
 	int default_depth, fbbpp;
 
-	TRACE("MaliPreInit");
+	TRACE_ENTER();
 
 	if (flags & PROBE_DETECT) return FALSE;
 
@@ -977,8 +972,6 @@ static Bool MaliPreInit(ScrnInfoPtr pScrn, int flags)
 
 	mali_check_dri_options( pScrn );
 	mali_check_exa_options( pScrn );
-	mali_check_misc_options( pScrn );
-
 
 	fPtr->fb_lcd_fd = MaliHWGetFD( pScrn );
 
@@ -1054,7 +1047,7 @@ static Bool MaliScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **ar
 	int init_picture = 0;
 	int ret, flags;
 
-	TRACE("MaliScreenInit");
+	TRACE_ENTER();
 	IGNORE(argc);
 	IGNORE(argv);
 
@@ -1213,7 +1206,8 @@ static Bool MaliCloseScreen(int scrnIndex, ScreenPtr pScreen)
 {
 	ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
 	MaliPtr fPtr = MALIPTR(pScrn);
-	TRACE("MaliCloseScreen");
+
+	TRACE_ENTER();
 	
 	MaliHWRestore(pScrn);
 	MaliHWUnmapVidmem(pScrn);
