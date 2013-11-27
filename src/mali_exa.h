@@ -23,15 +23,17 @@
 #ifndef _MALI_EXA_H_
 #define _MALI_EXA_H_
 
-#include <ump/ump.h>
-#include <ump/ump_ref_drv.h>
 #include "xf86.h"
 #include "exa.h"
+#include <ump/ump.h>
+#include <ump/ump_ref_drv.h>
+
+
 
 /* Change this ioctl according to your specific UMP integration with LCD kernel driver */
 #define GET_UMP_SECURE_ID _IOWR('m', 310, unsigned int)
 
-struct mali_info 
+struct mali_info
 {
 	ScrnInfoPtr pScrn;
 	unsigned long fb_phys;

@@ -111,26 +111,26 @@ static DRI2Buffer2Ptr MaliDRI2CreateBuffer( DrawablePtr pDraw, unsigned int atta
 			 * Offset: 768
 			 */
 			buffer->flags = (fPtr->fb_lcd_var.xres_virtual * fPtr->fb_lcd_var.bits_per_pixel/8) * fPtr->fb_lcd_var.yres;
-	
-			/* make sure the display offset is set to a known state */
-			if ( ioctl( fPtr->fb_lcd_fd, FBIOGET_VSCREENINFO, &fPtr->fb_lcd_var ) < 0 )
-			{
-				xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] failed in FBIOGET_VSCREENINFO\n", __FUNCTION__, __LINE__ );
-				free( buffer );
-				free( privates );
-				return NULL;
-			}
+		}
 
-			fPtr->fb_lcd_var.yoffset = fPtr->fb_lcd_var.yres;
-			fPtr->fb_lcd_var.activate = FB_ACTIVATE_NOW;
+		if ( ioctl( fPtr->fb_lcd_fd, FBIOGET_VSCREENINFO, &fPtr->fb_lcd_var ) < 0 )
+		{
+			xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] failed in FBIOGET_VSCREENINFO\n", __FUNCTION__, __LINE__ );
+			free( buffer ),
+			free( privates );
+			TRACE_EXIT();
+			return NULL;
+		}
 
-			if ( ioctl( fPtr->fb_lcd_fd, FBIOPUT_VSCREENINFO, &fPtr->fb_lcd_var ) < 0 )
-			{
-				xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] failed in FBIOPUT_VSCREENINFO\n", __FUNCTION__, __LINE__ );
-				free( buffer );
-				free( privates );
-				return NULL;
-			}
+		fPtr->fb_lcd_var.yoffset = fPtr->fb_lcd_var.yres;
+		fPtr->fb_lcd_var.activate = FB_ACTIVATE_NOW;
+
+		if ( ioctl( fPtr->fb_lcd_fd, FBIOPUT_VSCREENINFO, &fPtr->fb_lcd_var ) < 0 )
+		{
+			xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] failed in FBIOPUT_VSCREENINFO\n", __FUNCTION__, __LINE__ );
+			free( buffer );
+			free( privates );
+			return NULL;
 		}
 
 		if ( DRAWABLE_PIXMAP == pDraw->type ) pPixmap = (PixmapPtr)pDraw;
@@ -200,7 +200,11 @@ static void MaliDRI2DestroyBuffer( DrawablePtr pDraw, DRI2Buffer2Ptr buffer )
 		{
 			if ( TRUE == private->isPageFlipped )
 			{
-				xf86DrvMsg( pScrn->scrnIndex, X_ERROR, "[%s:%d] Setting back to zero offset\n", __FUNCTION__, __LINE__ );
+				if ( ioctl( fPtr->fb_lcd_fd, FBIOGET_VSCREENINFO, &fPtr->fb_lcd_var ) < 0 )
+				{
+					xf86DrvMsg( pScrn->scrnIndex, X_WARNING, "[%s:%d] failed in FBIOGET_VSCREENINFO\n", __FUNCTION__, __LINE__ );
+				}
+
 				fPtr->fb_lcd_var.yoffset = 0;
 				fPtr->fb_lcd_var.activate = FB_ACTIVATE_NOW;
 
